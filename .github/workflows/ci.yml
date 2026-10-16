@@ -1,0 +1,74 @@
+# CI：pull_request 与 push 到 main 时触发。
+# PR 只做质量门禁（fmt / vet / test）；push 到 main 时额外打包并上传主干制品。
+# 注意：不要添加 paths / paths-ignore 过滤——被跳过的工作流会让必需检查一直 Pending。
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  ci:                       # job 名即任务 3 中要选择的必需检查名称
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      # TODO 1：安装 Go。固定到补丁号 1.26.9，构建环境才可复现
+      - name: 安装 Go 1.26.9
+        uses: actions/setup-go@v7
+        with:
+          go-version: 1.26.9
+
+      # TODO 2：打印关键上下文（放在测试之前，测试失败时也能看到；问题 2 需要）。
+      # 先放入 env 再在脚本中引用：不要把外部可控的值直接拼进脚本
+      - name: 显示上下文信息
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          SHA: ${{ github.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          echo "event_name  = $EVENT_NAME"
+          echo "ref         = $REF"
+          echo "sha         = $SHA"
+          echo "pr_head_sha = $PR_HEAD_SHA"
+
+      # TODO 3：质量门禁各占一个 step，失败时立即看出是哪一步
+      - name: gofmt 检查
+        run: make fmt-check
+
+      - name: go vet 静态检查
+        run: make vet
+
+      - name: 运行测试
+        run: make test
+
+      # TODO 4：仅 push 到 main 时打包主干制品
+      - name: 打包（主干制品）
+        if: github.event_name == 'push'
+        env:
+          VERSION: 0.0.0-main
+          BUILD_NO: ${{ github.run_number }}
+          RUN_ID: ${{ github.run_id }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          make package VERSION="$VERSION" BUILD_NO="$BUILD_NO" RUN_ID="$RUN_ID" COMMIT="$COMMIT"
+          echo "--- BUILD_INFO ---"
+          cat dist/*_linux_amd64/BUILD_INFO
+          echo "--- sha256 ---"
+          sha256sum dist/*_linux_amd64/enroll-conflict dist/*.tar.gz
+
+      - name: 上传制品
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v7
+        with:
+          name: enroll-conflict-${{ github.sha }}-${{ github.run_number }}
+          path: |
+            dist/*.tar.gz
+            dist/*.tar.gz.sha256
+          retention-days: 14
