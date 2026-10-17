@@ -20,7 +20,7 @@ type Section struct {
 
 // Valid 检查时段本身是否合法。
 func (s Section) Valid() bool {
-	if s.Weekday < 1 || s.Weekday > 6 {
+	if s.Weekday < 1 || s.Weekday > 7 {
 		return false
 	}
 	if s.Start < 1 || s.End < s.Start {
