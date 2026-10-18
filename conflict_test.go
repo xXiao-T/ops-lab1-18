@@ -39,6 +39,11 @@ func TestValid(t *testing.T) {
 	if !good.Valid() {
 		t.Fatalf("%+v 应当合法", good)
 	}
+	// 周日（Weekday=7）也是合法值，一周的上界应当包含 7
+	sunday := Section{Weekday: 7, Start: 1, End: 2, Weeks: AllWeeks}
+	if !sunday.Valid() {
+		t.Errorf("%+v 应当合法（周日属于一周之内）", sunday)
+	}
 	bad := []Section{
 		{Weekday: 0, Start: 1, End: 2, Weeks: AllWeeks},
 		{Weekday: 8, Start: 1, End: 2, Weeks: AllWeeks},
