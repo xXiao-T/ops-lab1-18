@@ -47,7 +47,7 @@ go=go1.26.9
 | 第二轮：撤销缺陷后通过的运行 | https://github.com/xXiao-T/ops-lab1-18/actions/runs/39101050460 |
 | 未合入分支上的 tag 被 release gate 拒绝的运行 | https://github.com/xXiao-T/ops-lab1-18/actions/runs/39121326245 （`release gate（tag 必须在 main 上）` 失败，后续步骤全部跳过，未产生 Release）|
 | Release v1.0.0 | https://github.com/xXiao-T/ops-lab1-18/releases/tag/v1.0.0 |
-| Release v1.0.1 | <待 v1.0.1 发布后补充> |
+| Release v1.0.1 | <https://github.com/xXiao-T/ops-lab1-18/releases/tag/v1.0.1> |
 
 组长直接 `git push origin main` 被拒的输出：
 
