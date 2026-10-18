@@ -6,37 +6,58 @@
 
 | 项 | 内容 |
 |---|---|
-| 小组 | 第 <组号> 组 |
-| 仓库地址 | <https://github.com/…> |
-| 代码载体 | 统一示例 / 自己的项目（<项目名与语言>） |
-| runner 与语言版本 | `ubuntu-24.04`，<Go 或其他语言的版本> |
-| 合并方式 | <squash / merge commit / rebase> |
+| 小组 | 第 18 组 |
+| 仓库地址 | <https://github.com/xXiao-T/ops-lab1-18> |
+| 代码载体 | 统一示例（enroll-conflict，Go） |
+| runner 与语言版本 | `ubuntu-24.04`，Go 1.26.9 |
+| 合并方式 | squash（仅允许 squash 合并 + 合并后自动删除分支） |
 
 ## 2. 任务 0：本地基线
 
 | 问题 | 观察结果 |
 |---|---|
-| 第一次 `make package` 得到的 BUILD_INFO（粘贴） | <填写> |
-| 修改一行、不提交，再次打包：BUILD_INFO 是否变化？二进制文件的 sha256 是否变化？（贴出两次的 sha256） | <填写> |
-| 两次 `go version -m` 输出中的 vcs 行有何不同？ | <填写> |
-| 仅凭 BUILD_INFO，能否回答该包是什么、在哪台机器上、何时、用哪份代码构建？哪一项信息会出错？ | <填写> |
+| 第一次 `make package` 得到的 BUILD_INFO（粘贴） | 见下方代码块 |
+| 修改一行、不提交，再次打包：BUILD_INFO 是否变化？二进制文件的 sha256 是否变化？（贴出两次的 sha256） | BUILD_INFO **不变**（`commit` 取自 `git rev-parse HEAD`，不含工作区状态）；二进制 sha256 **变化**：`f23447d406c42af7dd35e23c2d1b2f15484cfb709cc9b4bb1262643694b8528e` → `9778e72f52340f28797756e9cb7df8889111c5f7dac452a737411f1426e2911c` |
+| 两次 `go version -m` 输出中的 vcs 行有何不同？ | `vcs.modified` 由 `false` 变为 `true`；`vcs.revision`（`7b63b41c…`）与 `vcs.time` 不变 |
+| 仅凭 BUILD_INFO，能否回答该包是什么、在哪台机器上、何时、用哪份代码构建？哪一项信息会出错？ | 「是什么」能答（`name`）；「何时」「在哪台机器」**不能**——BUILD_INFO 有意不含构建时间与主机信息（保证可重复构建）。「用哪份代码」**会出错**：源码已改、`commit` 仍指向 `7b63b41c`，与实际构建内容不符（只有 `vcs.modified=true` 暴露了这一点）。故本地手工构建的标识不可信，需要流水线以 `github.sha` 等权威输入生成标识 |
+
+第一次的 BUILD_INFO：
+
+```text
+name=enroll-conflict
+version=1.0.0
+build_no=1
+run_id=local
+commit=7b63b41c13f061439997b0e6e4eaa2af922a7aa1
+go=go1.26.9
+```
 
 ## 3. 证据
 
 | 项 | 链接或文本 |
 |---|---|
-| 规则集里启用的规则 | <列出规则名、审批人数和必需检查的名称> |
-| 组长直接 `git push origin main` 被拒的终端输出 | <粘贴文本> |
-| 第一轮：失败的 PR 运行 | <链接> |
-| 第一轮：修复后通过的 PR 运行 | <链接> |
-| 第一轮：合入 main 后的运行（含制品） | <链接> |
-| 第二轮：找到的缺陷，以及现有测试为何无法发现它 | <一两句话> |
-| 第二轮：仅含缺陷时仍然通过的运行 | <链接> |
-| 第二轮：补测试后失败的运行 | <链接> |
-| 第二轮：撤销缺陷后通过的运行 | <链接> |
-| 未合入分支上的 tag 被 release gate 拒绝的运行 | <链接> |
-| Release v1.0.0 | <链接> |
-| Release v1.0.1 | <链接> |
+| 规则集里启用的规则 | `deletion`（Restrict deletions）、`non_fast_forward`（Block force pushes）、`pull_request`（Required approvals = **1**）、`required_status_checks`（必需检查 = **`ci`**）；Bypass list 为空（对管理员同样生效） |
+| 组长直接 `git push origin main` 被拒的终端输出 | 见下方代码块 |
+| 第一轮：失败的 PR 运行 | https://github.com/xXiao-T/ops-lab1-18/actions/runs/38859655635 （PR #1，倒在「运行测试」） |
+| 第一轮：修复后通过的 PR 运行 | https://github.com/xXiao-T/ops-lab1-18/actions/runs/38859793662 |
+| 第一轮：合入 main 后的运行（含制品） | https://github.com/xXiao-T/ops-lab1-18/actions/runs/39021031583 （制品 `enroll-conflict-8177aa7…-4`） |
+| 第二轮：找到的缺陷，以及现有测试为何无法发现它 | `Valid()` 把 `Weekday > 7` 收紧为 `> 6`，周日（7）被误判非法；现有测试的 Weekday 只覆盖 0、3、8（单元）与 1、9（端点），全仓库没有 `Weekday=7` 的用例，故测试全绿 |
+| 第二轮：仅含缺陷时仍然通过的运行 | https://github.com/xXiao-T/ops-lab1-18/actions/runs/39021467507 （gate 未拦住）|
+| 第二轮：补测试后失败的运行 | https://github.com/xXiao-T/ops-lab1-18/actions/runs/39021583380 （新用例抓获）|
+| 第二轮：撤销缺陷后通过的运行 | https://github.com/xXiao-T/ops-lab1-18/actions/runs/39101050460 |
+| 未合入分支上的 tag 被 release gate 拒绝的运行 | https://github.com/xXiao-T/ops-lab1-18/actions/runs/39121326245 （`release gate（tag 必须在 main 上）` 失败，后续步骤全部跳过，未产生 Release）|
+| Release v1.0.0 | https://github.com/xXiao-T/ops-lab1-18/releases/tag/v1.0.0 |
+| Release v1.0.1 | <待 v1.0.1 发布后补充> |
+
+组长直接 `git push origin main` 被拒的输出：
+
+```text
+remote: error: GH013: Repository rule violations found for refs/heads/main.
+remote: - Changes must be made through a pull request.
+remote: - Required status check "ci" is expected.
+ ! [remote rejected] main -> main (push declined due to repository rule violations)
+error: failed to push some refs to 'https://github.com/xXiao-T/ops-lab1-18.git'
+```
 
 ## 4. 追溯与运行
 
