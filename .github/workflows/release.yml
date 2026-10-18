@@ -1,0 +1,64 @@
+# 发布工作流：推送 vX.Y.Z 格式的 tag 时触发。
+# release gate：tag 指向的提交必须是 main 上的提交（main 的祖先），否则拒绝发布。
+# 通过后在 tag 所指提交上重新编译（版本号经编译参数写入二进制），并创建 Release。
+name: release
+
+on:
+  push:
+    tags:
+      - v[0-9]+.[0-9]+.[0-9]+      # 匹配 v1.0.0 形式；这是 GitHub 的过滤语法，不是正则表达式
+
+permissions:
+  contents: write                   # 创建 Release 需要写权限；ci 保持只读
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0            # 获取完整历史，才能判断 tag 是否在 main 上
+
+      # TODO 1：release gate——tag 指向的提交必须是 origin/main 的祖先
+      - name: release gate（tag 必须在 main 上）
+        run: |
+          if git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "✅ tag 指向的提交 $GITHUB_SHA 在 origin/main 的历史上，允许发布"
+          else
+            echo "::error::tag 指向的提交 $GITHUB_SHA 不在 main 历史上，禁止发布"
+            exit 1
+          fi
+
+      # TODO 2：安装 Go 1.26.9，发布前再跑一遍质量门禁
+      - name: 安装 Go 1.26.9
+        uses: actions/setup-go@v7
+        with:
+          go-version: 1.26.9
+
+      - name: 发布前质量门禁（fmt / vet / test）
+        run: make fmt-check vet test
+
+      # TODO 3：打包，VERSION 取 tag 去掉开头的 v
+      - name: 打包（发布制品）
+        env:
+          TAG: ${{ github.ref_name }}
+          BUILD_NO: ${{ github.run_number }}
+          RUN_ID: ${{ github.run_id }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          VERSION="${TAG#v}"
+          make package VERSION="$VERSION" BUILD_NO="$BUILD_NO" RUN_ID="$RUN_ID" COMMIT="$COMMIT"
+          echo "--- BUILD_INFO ---"
+          cat dist/*_linux_amd64/BUILD_INFO
+          echo "--- sha256 ---"
+          sha256sum dist/*_linux_amd64/enroll-conflict dist/*.tar.gz
+
+      # TODO 4：创建 Release（runner 预装 gh，通过 GH_TOKEN 传入 GITHUB_TOKEN）
+      - name: 创建 Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" dist/*.tar.gz dist/*.tar.gz.sha256 \
+            --title "$TAG" \
+            --notes "由 GitHub Actions 在 tag 所指提交上构建并发布的制品，含 .sha256 校验和。"
