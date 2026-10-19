@@ -33,7 +33,8 @@ func TestConflicts(t *testing.T) {
 		})
 	}
 }
-
+// TestConflicts 覆盖同一时段、节次部分重叠、首尾相接、不同星期、
+// 单双周组合等场景，并检查冲突判断的对称性。
 func TestValid(t *testing.T) {
 	good := Section{Weekday: 3, Start: 1, End: 2, Weeks: EvenWeeks}
 	if !good.Valid() {
