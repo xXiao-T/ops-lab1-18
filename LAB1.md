@@ -168,4 +168,7 @@ error: failed to push some refs to 'https://github.com/xXiao-T/ops-lab1-18.git'
 
 | GitHub 用户名 | 发起并合入的 PR 编号 | 审批过的 PR 编号 |
 |---|---|---|
-| <用户名> | <编号> | <编号> |
+|xXiao-T | <编号> | <编号> |
+|ZhenyangNi| <编号> | <编号> |
+|OO1220| <编号> | <编号> |
+|peichow2| <编号> | <编号> |
