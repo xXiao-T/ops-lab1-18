@@ -228,8 +228,8 @@ go=go1.26.9
 
 | 选做 | 完成情况与证据 |
 |---|---|
-| O1 容器镜像 | 未做 |
-| O2 缓存对反馈时间的影响 | 未做 |
+| O1 容器镜像 | **完成**。`release.yml` 新增 `image` job（`needs: release`）：下载 Release 附件并校验 → 解压为构建上下文 → 用 `Dockerfile`（`FROM scratch`）构建（**不重新编译**）→ 推送 `ghcr.io/xxiao-t/ops-lab1-18`。运行：<https://github.com/xXiao-T/ops-lab1-18/actions/runs/39560081210>（release 32 s + image 12 s）。镜像 `linux/amd64`，digest `sha256:4db7967d351773d694650aa11f98c20aa62f5818ff58896de485da0acd1c0976`；**匿名拉取成功**；按 digest 运行容器（主机 x86_64，原生匹配），`/version` = `{"version":"1.0.2","commit":"7ac2acd8aba7ebfab38778949216bfac114df568","build_no":"4","go":"go1.26.9"}`。思考：Release 由 `GITHUB_TOKEN` 创建，其事件不会再触发新工作流运行，故镜像 job 必须写在同一工作流。 |
+| O2 缓存对反馈时间的影响 | **完成**。预期：无第三方依赖，缓存收益有限。实测（PR #10 `cache: false` 对照，**不合并**）：有缓存 12/21/20/16/20/18 s（均值 17.8 s，中位 19.0 s，<https://github.com/xXiao-T/ops-lab1-18/actions/runs/39542627246>）；无缓存 26/24/33/21/30/21 s（均值 25.8 s，中位 25.0 s，<https://github.com/xXiao-T/ops-lab1-18/actions/runs/39557699490>）。**均值差 8.0 s（+45%）**，低于预期 15～40 s——runner 下载 Go 工具链快、无模块依赖、缓存恢复本身有开销。局限：样本 6+6、共享 runner 噪声、Re-run 共享同一 run 的基础设施，不能外推到多依赖项目。 |
 | O3 迁移到小组项目 | 未做 |
 
 ## 8. 成员贡献
