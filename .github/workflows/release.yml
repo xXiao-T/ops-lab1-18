@@ -62,3 +62,53 @@ jobs:
           gh release create "$TAG" dist/*.tar.gz dist/*.tar.gz.sha256 \
             --title "$TAG" \
             --notes "由 GitHub Actions 在 tag 所指提交上构建并发布的制品，含 .sha256 校验和。"
+
+  # ===== 选做 O1：容器镜像 =====
+  # 用上一步 Release 的附件 + 仓库中的 Dockerfile 构建镜像（镜像内不重新编译），
+  # 推送到 ghcr.io/<小写仓库路径>。必须与 release 同工作流：Release 由 GITHUB_TOKEN
+  # 创建，其事件不会再触发新的工作流运行。
+  image:
+    needs: release
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: 下载 Release 附件并校验
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          mkdir -p dist/release
+          gh release download "$TAG" --pattern '*.tar.gz' --pattern '*.sha256' --dir dist/release
+          cd dist/release && sha256sum -c *.sha256
+
+      - name: 解压制品（作为镜像构建上下文）
+        run: tar -xzf dist/release/enroll-conflict_*_linux_amd64.tar.gz -C dist/release
+
+      - name: 构建并推送镜像（不重新编译）
+        env:
+          TAG: ${{ github.ref_name }}
+          COMMIT: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+          GHCR_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${TAG#v}"
+          IMAGE="ghcr.io/$(printf '%s' "$REPO" | tr '[:upper:]' '[:lower:]')"
+          CONTEXT="dist/release/enroll-conflict_${VERSION}_linux_amd64"
+          echo "镜像 $IMAGE:$TAG，构建上下文 $CONTEXT（二进制来自 Release 附件）"
+          docker build -f Dockerfile \
+            --build-arg VERSION="$VERSION" \
+            --build-arg COMMIT="$COMMIT" \
+            --build-arg SOURCE="https://github.com/$REPO" \
+            -t "$IMAGE:$TAG" \
+            "$CONTEXT"
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          docker push "$IMAGE:$TAG"
+          echo "--- 镜像架构 ---"
+          docker image inspect --format '{{.Os}}/{{.Architecture}}' "$IMAGE:$TAG"
+          echo "--- 镜像 digest ---"
+          docker inspect --format '{{index .RepoDigests 0}}' "$IMAGE:$TAG"
