@@ -23,6 +23,7 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version: 1.26.9
+          cache: false
 
       # TODO 2：打印关键上下文（放在测试之前，测试失败时也能看到；问题 2 需要）。
       # 先放入 env 再在脚本中引用：不要把外部可控的值直接拼进脚本
